@@ -1,0 +1,6 @@
+# 模型和原生资源必须按原始字节保存。
+*.onnx binary
+*.dll binary
+*.ico binary
+*.png binary
+Assets/models/*.txt text eol=lf

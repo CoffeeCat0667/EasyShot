@@ -1,0 +1,33 @@
+EasyShot M6 recognition dependencies
+
+RapidOcrNet 4.2.0 — Apache-2.0
+https://github.com/BobLd/RapidOcrNet
+Based on RapidAI/RapidOCR and portions of PdfPig; contour processing derives
+from LingDong-/PContour and BobLd/PContourNet. See their upstream notices.
+
+PaddleOCR PP-OCRv4 Chinese mobile models — Apache-2.0
+https://github.com/PaddlePaddle/PaddleOCR
+Downloaded from RapidAI/RapidOCR, ModelScope revision v3.10.0:
+  onnx/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx
+  onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx
+  onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx
+  paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile/ppocr_keys_v1.txt
+
+Microsoft ONNX Runtime — MIT
+https://github.com/microsoft/onnxruntime
+See ONNXRuntime-LICENSE.txt and ONNXRuntime-ThirdPartyNotices.txt.
+
+SkiaSharp — MIT; see SkiaSharp-LICENSE.txt
+https://github.com/mono/SkiaSharp
+
+Clipper2 — Boost Software License 1.0; see Clipper2-LICENSE.txt
+https://github.com/AngusJohnson/Clipper2
+
+ZXing.Net — Apache-2.0; see ZXing.Net-Apache-2.0.txt
+https://github.com/micjahn/ZXing.Net
+
+Microsoft Visual C++ runtime DLLs — Microsoft Corporation.
+App-local runtime components used by ONNX Runtime on Windows x64.
+https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files
+
+These notices and accompanying license texts are embedded in EasyShot.exe.

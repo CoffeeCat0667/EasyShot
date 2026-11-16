@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>EasyShot</AssemblyName>
+    <RootNamespace>EasyShot</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>icon\easyshot.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <PackageReference Include="RapidOcrNet" Version="4.2.0" ExcludeAssets="contentFiles;build;buildTransitive" />
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="icon\easyshot.ico" />
+    <EmbeddedResource Include="Assets\models\*" />
+    <EmbeddedResource Include="ThirdParty\**\*" />
+    <Content Include="Assets\native\*.dll" TargetPath="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="BundleOcrNativeLibraries" AfterTargets="ComputeFilesToPublish" BeforeTargets="GenerateSingleFileBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.lib'" />
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="'%(Filename)' == 'msvcp140' Or '%(Filename)' == 'msvcp140_1' Or '%(Filename)' == 'vcruntime140' Or '%(Filename)' == 'vcruntime140_1'">
+        <FileType>Native</FileType>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>

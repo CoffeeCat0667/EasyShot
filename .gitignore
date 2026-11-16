@@ -1,0 +1,41 @@
+# .NET / WPF 构建与发布输出
+**/[Bb]in/
+**/[Oo]bj/
+[Aa]rtifacts/
+[Dd]ist/
+[Pp]ublish/
+TestResults/
+*.pdb
+*.lib
+
+# IDE / 用户工作区
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.csproj.user
+*.pubxml.user
+
+# 本地运行数据（不提交个人路径和快捷键）
+config.json
+config.*.json
+*.log
+*.dmp
+
+# 临时文件与系统元数据
+*.tmp
+*.bak
+~$*
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 本地凭据 / 环境文件
+.env
+.env.*
+!.env.example
+
+# Assets/models、Assets/native、icon/*.ico 是构建输入，必须保留。
