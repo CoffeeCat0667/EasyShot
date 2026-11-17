@@ -442,16 +442,17 @@ internal sealed class OverlaySession
             return;
         }
 
-        var frame = _beforeEdit.SelectionBounds;
         var delta = physical - _annotationDragStart;
+        var originalBounds = _beforeEdit.Bounds;
         if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0)
         {
-            var resized = ResizeBounds.Calculate(_beforeEdit.Bounds, _handle, delta, 1, 1, true);
+            var resized = ResizeBounds.Calculate(originalBounds, _handle, delta, 1, 1, true);
             var padding = _beforeEdit.Thickness / 2 + 4;
             resized.Inflate(padding, padding);
             _selectedAnnotation.ResizeFrom(_beforeEdit, resized);
             return;
         }
+        var frame = _beforeEdit.SelectionBounds;
         var left = frame.Left;
         var right = frame.Right;
         var top = frame.Top;
@@ -822,19 +823,6 @@ internal sealed class OverlaySession
 
     private void ResizeTo(Point physical)
     {
-        if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0)
-        {
-            var original = new Rect(_dragOrigin.X, _dragOrigin.Y, _dragOrigin.Width, _dragOrigin.Height);
-            var limits = new Rect(_virtualScreen.X, _virtualScreen.Y, _virtualScreen.Width, _virtualScreen.Height);
-            var resized = ResizeBounds.Calculate(original, _handle, physical - _dragStart,
-                MinSelectionSize, MinSelectionSize, true, limits);
-            var x = (int)Math.Round(resized.X);
-            var y = (int)Math.Round(resized.Y);
-            var rightEdge = Math.Min(_virtualScreen.X + _virtualScreen.Width, (int)Math.Round(resized.Right));
-            var bottomEdge = Math.Min(_virtualScreen.Y + _virtualScreen.Height, (int)Math.Round(resized.Bottom));
-            _selection = new Int32Rect(x, y, rightEdge - x, bottomEdge - y);
-            return;
-        }
         var dx = (int)Math.Round(physical.X - _dragStart.X);
         var dy = (int)Math.Round(physical.Y - _dragStart.Y);
 

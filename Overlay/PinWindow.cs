@@ -159,13 +159,14 @@ internal sealed class PinWindow : Window
     {
         if (message == 0x0231 && NativeMethods.GetWindowRect(hwnd, out var original)) // WM_ENTERSIZEMOVE
             _resizeOrigin = new Rect(original.Left, original.Top, original.Right - original.Left, original.Bottom - original.Top);
-        if (message != 0x0214 || NativeMethods.GetAsyncKeyState(0x10) < 0 || _resizeOrigin.Width <= 0) return IntPtr.Zero;
+        if (message != 0x0214 || _resizeOrigin.Width <= 0) return IntPtr.Zero;
         var handle = wParam.ToInt32() switch { 1 => 7, 2 => 3, 3 => 1, 4 => 0, 5 => 2, 6 => 5, 7 => 6, 8 => 4, _ => -1 };
         if (handle < 0) return IntPtr.Zero;
         var request = System.Runtime.InteropServices.Marshal.PtrToStructure<NativeMethods.Rect>(lParam);
         var dx = handle is 0 or 6 or 7 ? request.Left - _resizeOrigin.Left : request.Right - _resizeOrigin.Right;
         var dy = handle is 0 or 1 or 2 ? request.Top - _resizeOrigin.Top : request.Bottom - _resizeOrigin.Bottom;
         var dpi = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+        // 贴图线框代表整个图像窗口，所有边/角抓手始终保持原始宽高比。
         var rect = ResizeBounds.Calculate(_resizeOrigin, handle, new Vector(dx, dy), MinWidth * dpi, MinHeight * dpi, true);
         request.Left = (int)Math.Round(rect.Left);
         request.Top = (int)Math.Round(rect.Top);

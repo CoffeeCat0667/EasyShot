@@ -36,7 +36,9 @@ internal sealed class AppConfig
         catch { return Color.FromRgb(0, 122, 255); }
     }
 
-    public static string FilePath => Path.Combine(AppContext.BaseDirectory, "config.json");
+    public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EasyShot");
+    public static string FilePath => Path.Combine(DirectoryPath, "config.json");
+    private static string LegacyFilePath => Path.Combine(AppContext.BaseDirectory, "config.json");
 
     public static AppConfig Load(out bool needsWriteBack)
     {
@@ -45,6 +47,23 @@ internal sealed class AppConfig
         if (!File.Exists(FilePath))
         {
             needsWriteBack = true;
+            // Preserve existing portable settings when upgrading to Program Files.
+            if (!string.Equals(FilePath, LegacyFilePath, StringComparison.OrdinalIgnoreCase) && File.Exists(LegacyFilePath))
+            {
+                try
+                {
+                    var legacy = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(LegacyFilePath), JsonOptions);
+                    if (legacy is not null)
+                    {
+                        legacy.Normalize();
+                        return legacy;
+                    }
+                }
+                catch
+                {
+                    // Invalid legacy config falls back to defaults below.
+                }
+            }
             return new AppConfig();
         }
 
@@ -72,13 +91,14 @@ internal sealed class AppConfig
     {
         try
         {
+            Directory.CreateDirectory(DirectoryPath);
             File.WriteAllText(FilePath, JsonSerializer.Serialize(this, JsonOptions));
             error = string.Empty;
             return true;
         }
         catch (Exception ex)
         {
-            error = $"无法写入配置文件：{FilePath}\n请将 EasyShot.exe 放到可写目录后再运行。\n\n{ex.Message}";
+            error = $"无法写入当前用户配置文件：{FilePath}\n请检查当前用户对 LocalAppData 目录的访问权限。\n\n{ex.Message}";
             return false;
         }
     }

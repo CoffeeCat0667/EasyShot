@@ -12,6 +12,7 @@
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)
 ![UI](https://img.shields.io/badge/UI-WPF-2563EB)
 [![Issues](https://img.shields.io/github/issues/CoffeeCat0667/EasyShot)](https://github.com/CoffeeCat0667/EasyShot/issues)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [下载最新版](https://github.com/CoffeeCat0667/EasyShot/releases/latest) · [反馈问题](https://github.com/CoffeeCat0667/EasyShot/issues)
 
@@ -45,7 +46,9 @@ EasyShot 是基于 C# / .NET 10 / WPF 开发的 Windows 截图工具。发布版
 
 > 使用 Windows 10 / Windows 11 **x64**。未在所有 Windows 版本或未安装运行库的干净机器上验证兼容性，发现问题请提交 Issue。
 >
-> 分发文件只有一个 exe，但运行时会生成同目录 `config.json`，并按 .NET 单文件机制解压原生依赖到用户临时目录。OCR 初始化会临时释放内嵌模型，加载后清理。程序启动后后台加载 OCR，不阻塞截图，但模型内存会保留至退出。
+> 如果升级到安装在 `C:\Program Files` 的版本且 LocalAppData 中尚无配置，程序会尝试导入 exe 同目录的旧版 `config.json`；导入后使用 `%LOCALAPPDATA%\EasyShot\config.json`，不会删除旧文件。
+>
+> 分发文件只有一个 exe。用户设置保存在 `%LOCALAPPDATA%\EasyShot\config.json`，所以 exe 可放在 `C:\Program Files` 而无需向安装目录写配置；开机自启写当前用户的 `HKCU\...\Run`，不要求管理员权限。原生依赖按 .NET 单文件机制解压到用户临时目录；OCR 初始化也会临时释放内嵌模型，加载后清理。程序启动后后台加载 OCR，不阻塞截图，但模型内存会保留至退出。
 >
 > 更新前请先在旧版托盘菜单中退出程序，再运行新版；否则单实例机制会激活仍在运行的旧进程。开机自启使用 exe 的绝对路径，移动程序后请在设置中重新配置自启。
 
@@ -56,7 +59,7 @@ EasyShot 是基于 C# / .NET 10 / WPF 开发的 Windows 截图工具。发布版
 - `Alt+S` 后单击选择窗口，或拖动框选区域；松手后显示选区抓手和工具栏。
 - 拖动选区不带动标注：标注固定在冻结屏幕位置，移出选区的部分隐藏，重新框入后恢复。
 - 选中标注后可拖动、调整大小或按 `Delete` 删除。
-- **所有抓手/贴图边框默认等比缩放，按住 `Shift` 自由调整宽高。** 初次框选与绘制不锁比例。
+- **区域截图框的 8 个抓手始终自由调整宽高，不受 `Shift` 限制。标注对象默认等比缩放，按住 `Shift` 自由调整；贴图线框始终等比。** 初次框选与绘制不锁比例。
 - 文字：点击输入，`Enter` 确认文字，`Esc` 放弃输入；双击已有文字重新编辑。
 - 拖动工具栏左侧点阵可移动悬浮栏，本次截图保持手动位置，下次截图恢复自动定位。
 
@@ -88,7 +91,7 @@ EasyShot 是基于 C# / .NET 10 / WPF 开发的 Windows 截图工具。发布版
 | 操作 | 效果 |
 | --- | --- |
 | 左键拖动内部 | 移动窗口 |
-| 拖动线框边缘或角 | 整体调整窗口大小；默认等比，`Shift` 自由缩放，无可见抓手 |
+| 拖动线框边缘或角 | 整体调整窗口大小，始终等比缩放（`Shift` 不解除比例），无可见抓手 |
 | 内部滚轮 | 围绕鼠标局部缩放图片，窗口大小不变，范围 100%–800% |
 | 按住中键拖动 | 平移放大的图像，不移动窗口，不露空白 |
 | 右键菜单 | 整体/局部放大缩小、置顶切换、不透明度 0–100% 滑块、确认、保存、取消 |
@@ -161,4 +164,4 @@ ThirdParty/   第三方许可与来源说明
 
 ## 第三方组件与许可
 
-使用 H.NotifyIcon、RapidOcrNet、ONNX Runtime、SkiaSharp、ZXing.Net 等组件；中文模型来自 PaddleOCR / RapidOCR。具体来源及已有许可文本见 [ThirdParty/NOTICE.txt](ThirdParty/NOTICE.txt)。这些许可不代表本项目原创代码已采用同样许可；当前尚未为原创代码指定独立开源许可证。
+本项目原创代码采用 [MIT License](LICENSE)。第三方组件与模型分别遵循各自许可：H.NotifyIcon、RapidOcrNet、ONNX Runtime、SkiaSharp、ZXing.Net、PaddleOCR / RapidOCR 等来源及许可文本见 [ThirdParty/NOTICE.txt](ThirdParty/NOTICE.txt) 和 `ThirdParty/`。MIT 仅适用于本项目原创代码，不替代或改变第三方许可。
