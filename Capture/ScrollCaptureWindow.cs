@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using EasyShot.Core;
@@ -38,12 +40,23 @@ internal sealed class ScrollCaptureWindow : Window
         Topmost = true;
         ShowInTaskbar = false;
         ShowActivated = false;
-        var panel = new StackPanel { Margin = new Thickness(10) };
+        Background = (Brush)FindResource("ShotBackground");
+        Foreground = (Brush)FindResource("ShotText");
+        FontFamily = new FontFamily("Segoe UI");
+        FontSize = 12;
+        Resources.Add(typeof(ScrollBar), FindResource("ShotScrollBar"));
+        _status.Foreground = (Brush)FindResource("ShotMuted");
+        _status.Margin = new Thickness(0, 0, 0, 10);
+        var panel = new StackPanel { Margin = new Thickness(14) };
         panel.Children.Add(_status);
-        panel.Children.Add(_preview);
+        var previewFrame = new Border { Background = (Brush)FindResource("ShotSurface"),
+            BorderBrush = (Brush)FindResource("ShotBorder"), BorderThickness = new Thickness(1),
+            Padding = new Thickness(6), HorizontalAlignment = HorizontalAlignment.Center };
+        previewFrame.Child = _preview;
+        panel.Children.Add(previewFrame);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        var finish = new Button { Content = "完成", Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(3) };
-        var cancel = new Button { Content = "取消", Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(3) };
+        var finish = new Button { Content = "完成", Style = (Style)FindResource("ShotButton"), Margin = new Thickness(3, 12, 3, 0) };
+        var cancel = new Button { Content = "取消", Style = (Style)FindResource("ShotButton"), Margin = new Thickness(3, 12, 3, 0) };
         finish.Click += (_, _) => RequestFinish();
         cancel.Click += (_, _) => Close();
         buttons.Children.Add(finish);

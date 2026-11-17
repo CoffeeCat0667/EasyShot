@@ -38,17 +38,22 @@ EasyShot 是基于 C# / .NET 10 / WPF 开发的 Windows 截图工具。发布版
 | 二维码与条形码 | 多码列表、格式及内容展示、逐项复制；包括 QR、Code128、Code39、EAN、UPC、ITF、Data Matrix、Aztec、PDF417。 |
 | 本地设置 | 区域/全屏热键、截图与贴图框线颜色、保存初始目录、开机自启、保存时同时复制。 |
 
+## v0.1.2
+
+- OCR、二维码识别和长截图控制窗统一为应用深色视觉样式。
+- 识别、复制、取消和长截图拼接行为不变。
+
 ## 下载与运行
 
 1. 前往 [Releases](https://github.com/CoffeeCat0667/EasyShot/releases/latest)，下载 **`EasyShot.exe`**。
-2. 放到当前用户可写的目录，双击运行；不需要安装程序或管理员权限。
+2. 放到可写目录或 `C:\Program Files`，双击运行；不需要安装程序或管理员权限。
 3. 按 `Alt+S`，或从托盘菜单选择截图。
 
 > 使用 Windows 10 / Windows 11 **x64**。未在所有 Windows 版本或未安装运行库的干净机器上验证兼容性，发现问题请提交 Issue。
 >
-> 如果升级到安装在 `C:\Program Files` 的版本且 LocalAppData 中尚无配置，程序会尝试导入 exe 同目录的旧版 `config.json`；导入后使用 `%LOCALAPPDATA%\EasyShot\config.json`，不会删除旧文件。
+> 设置保存在 `%LOCALAPPDATA%\EasyShot\config.json`，不写入 exe 所在目录。首次运行且用户配置不存在时，会尝试导入 exe 同目录旧版 `config.json`，不会删除旧文件。
 >
-> 分发文件只有一个 exe。用户设置保存在 `%LOCALAPPDATA%\EasyShot\config.json`，所以 exe 可放在 `C:\Program Files` 而无需向安装目录写配置；开机自启写当前用户的 `HKCU\...\Run`，不要求管理员权限。原生依赖按 .NET 单文件机制解压到用户临时目录；OCR 初始化也会临时释放内嵌模型，加载后清理。程序启动后后台加载 OCR，不阻塞截图，但模型内存会保留至退出。
+> 分发文件只有一个 exe。开机自启写当前用户的 `HKCU\...\Run`，不要求管理员权限。原生依赖按 .NET 单文件机制解压到用户临时目录；OCR 初始化也会临时释放内嵌模型，加载后清理。程序启动后后台加载 OCR，不阻塞截图，但模型内存会保留至退出。
 >
 > 更新前请先在旧版托盘菜单中退出程序，再运行新版；否则单实例机制会激活仍在运行的旧进程。开机自启使用 exe 的绝对路径，移动程序后请在设置中重新配置自启。
 

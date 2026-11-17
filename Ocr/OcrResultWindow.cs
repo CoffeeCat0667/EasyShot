@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace EasyShot.Ocr;
@@ -27,17 +29,35 @@ internal sealed class OcrResultWindow : Window
         Width = 650;
         Height = 500;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var layout = new DockPanel { Margin = new Thickness(12) };
+        Background = (Brush)FindResource("ShotBackground");
+        Foreground = (Brush)FindResource("ShotText");
+        FontFamily = new FontFamily("Segoe UI");
+        FontSize = 13;
+        Resources.Add(typeof(ScrollBar), FindResource("ShotScrollBar"));
+        _status.Foreground = (Brush)FindResource("ShotMuted");
+        _text.Style = (Style)FindResource("ShotTextBox");
+        _text.VerticalContentAlignment = VerticalAlignment.Top;
+        _text.MinHeight = 280;
+        _progress.Background = new SolidColorBrush(Color.FromRgb(53, 66, 88));
+        _progress.Foreground = (Brush)FindResource("ShotAccent");
+        _recognize.Style = (Style)FindResource("ShotButton");
+        _copy.Style = (Style)FindResource("ShotButton");
+        _cancel.Style = (Style)FindResource("ShotButton");
+        var layout = new DockPanel { Margin = new Thickness(16) };
         var top = new StackPanel();
+        var heading = new TextBlock { Text = "识别结果", FontSize = 15, FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("ShotText"), Margin = new Thickness(0, 0, 0, 2) };
+        top.Children.Add(heading);
         top.Children.Add(_status);
         top.Children.Add(_progress);
         DockPanel.SetDock(top, Dock.Top);
         layout.Children.Add(top);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0) };
         buttons.Children.Add(_copy);
         buttons.Children.Add(_recognize);
         buttons.Children.Add(_cancel);
-        var close = new Button { Content = "关闭", Margin = new Thickness(4) };
+        var close = new Button { Content = "关闭", Margin = new Thickness(4), Style = (Style)FindResource("ShotButton") };
         close.Click += (_, _) => Close();
         buttons.Children.Add(close);
         DockPanel.SetDock(buttons, Dock.Bottom);
