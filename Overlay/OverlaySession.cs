@@ -570,6 +570,14 @@ internal sealed class OverlaySession
         dc.Pop();
     }
 
+    internal bool CanCancelInitialRegion =>
+        _regionCapture && !_hasSelection && !_outputInProgress && _mode == DragMode.None;
+
+    internal void CancelInitialRegion()
+    {
+        if (CanCancelInitialRegion) Cancel();
+    }
+
     internal bool HandleKey(Key key, ModifierKeys modifiers)
     {
         if (_outputInProgress || _mode != DragMode.None)

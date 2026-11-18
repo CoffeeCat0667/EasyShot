@@ -29,6 +29,7 @@ public partial class OverlayWindow : Window
     private double _scale = 1.0;
     private TextBox? _textEditor;
     private bool _longImage;
+    private bool _rightCancelPending;
 
     internal OverlayWindow(OverlaySession session, MonitorInfo monitor, BitmapSource screen, Int32Rect virtualScreen)
     {
@@ -44,6 +45,8 @@ public partial class OverlayWindow : Window
 
         PreviewKeyDown += OnKeyDown;
         MouseLeftButtonDown += OnMouseDown;
+        MouseRightButtonDown += OnRightMouseDown;
+        MouseRightButtonUp += OnRightMouseUp;
         MouseMove += OnMouseMove;
         MouseLeftButtonUp += OnMouseUp;
     }
@@ -76,6 +79,8 @@ public partial class OverlayWindow : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         Content = layout;
         MouseLeftButtonDown -= OnMouseDown;
+        MouseRightButtonDown -= OnRightMouseDown;
+        MouseRightButtonUp -= OnRightMouseUp;
         MouseMove -= OnMouseMove;
         MouseLeftButtonUp -= OnMouseUp;
         Root.MouseLeftButtonDown += OnMouseDown;
@@ -353,6 +358,24 @@ public partial class OverlayWindow : Window
         _session.OnMouseDown(this, ToPhysical(e.GetPosition(Root)), e.ClickCount);
         Cursor = _session.GetCursor(ToPhysical(e.GetPosition(Root)));
         e.Handled = true;
+    }
+
+    private void OnRightMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_session.CanCancelInitialRegion) return;
+        _rightCancelPending = true;
+        CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void OnRightMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_rightCancelPending) return;
+        _rightCancelPending = false;
+        ReleaseMouseCapture();
+        Root.ReleaseMouseCapture();
+        e.Handled = true;
+        _session.CancelInitialRegion();
     }
 
     private void OnMouseMove(object sender, MouseEventArgs e)
