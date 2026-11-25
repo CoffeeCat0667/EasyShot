@@ -44,6 +44,7 @@ internal sealed class OverlaySession
     private int _nextNumber = 1;
     private bool _longImage;
     private bool _regionCapture;
+    private Int32Rect? _toolbarSelection;
 
     internal bool CanStartScrollCapture => _regionCapture && !_longImage;
 
@@ -184,7 +185,7 @@ internal sealed class OverlaySession
         }
         if (_hasSelection)
         {
-            var annotationHandle = HitAnnotationHandle(physical);
+            var annotationHandle = Tool == AnnotationTool.Select ? HitAnnotationHandle(physical) : -1;
             if (annotationHandle >= 0)
             {
                 _mode = DragMode.ResizingAnnotation;
@@ -206,19 +207,22 @@ internal sealed class OverlaySession
 
             if (Contains(_selection, physical))
             {
-                _selectedAnnotation = _annotations.LastOrDefault(a => a.HitTest(physical));
-                if (_selectedAnnotation is not null)
+                if (Tool == AnnotationTool.Select)
                 {
-                    if (clickCount == 2 && _selectedAnnotation.Tool == AnnotationTool.Text)
+                    _selectedAnnotation = _annotations.LastOrDefault(a => a.HitTest(physical));
+                    if (_selectedAnnotation is not null)
                     {
-                        window.BeginTextEdit(physical, _selectedAnnotation);
+                        if (clickCount == 2 && _selectedAnnotation.Tool == AnnotationTool.Text)
+                        {
+                            window.BeginTextEdit(physical, _selectedAnnotation);
+                            return;
+                        }
+                        _mode = DragMode.MovingAnnotation;
+                        _beforeEdit = _selectedAnnotation.Clone();
+                        _annotationDragStart = physical;
+                        Render();
                         return;
                     }
-                    _mode = DragMode.MovingAnnotation;
-                    _beforeEdit = _selectedAnnotation.Clone();
-                    _annotationDragStart = physical;
-                    Render();
-                    return;
                 }
 
                 if (Tool != AnnotationTool.Select)
@@ -235,7 +239,7 @@ internal sealed class OverlaySession
                         number.Points.Add(physical + new Vector(30, 30));
                         _annotations.Add(number);
                         _history.Record(() => { _annotations.Remove(number); _nextNumber--; }, () => { _annotations.Add(number); _nextNumber++; });
-                        _selectedAnnotation = number;
+                        _selectedAnnotation = null;
                         Render();
                         return;
                     }
@@ -284,11 +288,13 @@ internal sealed class OverlaySession
         }
         if (_windowPicking)
         {
+            var target = _captureWindows.FirstOrDefault(w => Contains(w.Frame, physical));
+            if (target?.Handle == _targetWindow?.Handle) return;
+            _targetWindow = target;
             _selection = Int32Rect.Empty;
-            _targetWindow = _captureWindows.FirstOrDefault(w => Contains(w.Frame, physical));
-            if (_targetWindow is { } target)
-                _selection = NormalizeRect(new Point(target.Frame.X, target.Frame.Y),
-                    new Point(target.Frame.X + target.Frame.Width, target.Frame.Y + target.Frame.Height));
+            if (target is { } selected)
+                _selection = NormalizeRect(new Point(selected.Frame.X, selected.Frame.Y),
+                    new Point(selected.Frame.X + selected.Frame.Width, selected.Frame.Y + selected.Frame.Height));
             Render();
             return;
         }
@@ -366,7 +372,7 @@ internal sealed class OverlaySession
             {
                 _annotations.Add(annotation);
                 _history.Record(() => _annotations.Remove(annotation), () => _annotations.Add(annotation));
-                _selectedAnnotation = annotation;
+                _selectedAnnotation = null;
             }
         }
         else if ((_mode == DragMode.MovingAnnotation || _mode == DragMode.ResizingAnnotation)
@@ -431,7 +437,7 @@ internal sealed class OverlaySession
             _history.Record(() => { edited.Text = oldText; SetPoints(edited, oldPoints); },
                 () => { edited.Text = text; SetPoints(edited, newPoints); });
         }
-        _selectedAnnotation = annotation;
+        _selectedAnnotation = Tool == AnnotationTool.Select ? annotation : null;
         Render();
     }
 
@@ -555,7 +561,7 @@ internal sealed class OverlaySession
         }
 
         _draft?.Render(dc, _screen, _virtualScreen);
-        if (showSelection && _selectedAnnotation is { } selected && _annotations.Contains(selected))
+        if (showSelection && Tool == AnnotationTool.Select && _selectedAnnotation is { } selected && _annotations.Contains(selected))
         {
             var bounds = selected.SelectionBounds;
             var pen = new Pen(Brushes.White, 1) { DashStyle = DashStyles.Dash };
@@ -642,7 +648,7 @@ internal sealed class OverlaySession
         return image;
     }
 
-    internal void RecognizeText() => ShowRecognition(() => new OcrResultWindow(ComposeImage));
+    internal void RecognizeText() => ShowRecognition(() => new OcrResultWindow(ComposeImage()));
 
     internal void RecognizeCodes() => ShowRecognition(() => new QrResultWindow(ComposeImage()));
 
@@ -653,10 +659,10 @@ internal sealed class OverlaySession
         try
         {
             var result = create();
-            result.Owner = OutputOwner;
+            Cancel();
             result.ShowDialog();
         }
-        catch (Exception ex) { ShowOutputError($"无法打开识别窗口：{ex.Message}"); }
+        catch (Exception ex) { MessageBox.Show($"无法打开识别窗口：{ex.Message}", "EasyShot", MessageBoxButton.OK, MessageBoxImage.Error); }
         finally
         {
             _outputInProgress = false;
@@ -908,7 +914,7 @@ internal sealed class OverlaySession
         }
         else if (_mode == DragMode.None)
         {
-            handle = HitAnnotationHandle(physical);
+            if (Tool == AnnotationTool.Select) handle = HitAnnotationHandle(physical);
             if (handle < 0)
             {
                 handle = HitHandle(physical);
@@ -924,18 +930,18 @@ internal sealed class OverlaySession
             _ when _mode is DragMode.Moving or DragMode.MovingAnnotation => Cursors.SizeAll,
             _ when _hasSelection && !Contains(_selection, physical) => Cursors.No,
             _ when _hasSelection && _mode == DragMode.Drawing => Cursors.Cross,
-            _ when _hasSelection && _annotations.Any(a => a.HitTest(physical)) => Cursors.SizeAll,
+            _ when _hasSelection && Tool == AnnotationTool.Select && _annotations.Any(a => a.HitTest(physical)) => Cursors.SizeAll,
             _ when _hasSelection && Tool == AnnotationTool.Text => Cursors.IBeam,
             _ when _hasSelection && Tool == AnnotationTool.Number => Cursors.Hand,
             _ when _hasSelection && Tool is AnnotationTool.Rectangle or AnnotationTool.Arrow or AnnotationTool.Pen or AnnotationTool.Mosaic => Cursors.Cross,
-            _ when _hasSelection => Cursors.SizeAll,
+            _ when _hasSelection && Tool == AnnotationTool.Select => Cursors.SizeAll,
             _ => Cursors.Cross
         };
     }
 
     private int HitAnnotationHandle(Point physical)
     {
-        if (!_hasSelection || !Contains(_selection, physical) ||
+        if (Tool != AnnotationTool.Select || !_hasSelection || !Contains(_selection, physical) ||
             _selectedAnnotation is not { } selected || !_annotations.Contains(selected))
         {
             return -1;
@@ -1011,7 +1017,7 @@ internal sealed class OverlaySession
         if (_hasSelection && _toolbar is not null)
         {
             _toolbar.UpdateState();
-            if (!_longImage) ShowToolbar();
+            if (!_longImage && _toolbarSelection != _selection) ShowToolbar();
         }
     }
 
@@ -1031,6 +1037,7 @@ internal sealed class OverlaySession
         }).First();
         var scale = _windows.First(w => w.Monitor == monitor).Scale;
         _toolbar.Place(_selection, monitor, scale);
+        _toolbarSelection = _selection;
     }
 
     private void HideToolbar()

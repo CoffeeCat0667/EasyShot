@@ -114,10 +114,10 @@ internal sealed class Annotation
         {
             var rect = new Rect(Points[0], Points[^1]);
             if (rect.Width <= 0 || rect.Height <= 0) return;
-            if (Tool == AnnotationTool.Number) dc.DrawEllipse(brush, null, new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2), rect.Width / 2, rect.Height / 2);
+            if (Tool == AnnotationTool.Number) dc.DrawEllipse(null, pen, new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2), rect.Width / 2, rect.Height / 2);
             var text = new FormattedText(Tool == AnnotationTool.Number ? Number.ToString() : Text,
                 CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Microsoft YaHei"),
-                Tool == AnnotationTool.Number ? 20 : 24, Tool == AnnotationTool.Number ? Brushes.White : brush, 1);
+                Tool == AnnotationTool.Number ? 20 : 24, brush, 1);
             if (text.Width <= 0 || text.Height <= 0) return;
             dc.PushTransform(new TranslateTransform(rect.X, rect.Y));
             if (Tool == AnnotationTool.Number)

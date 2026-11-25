@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using EasyShot.Core;
 using EasyShot.Overlay;
+using EasyShot.UI;
 
 namespace EasyShot.Capture;
 
@@ -28,12 +29,15 @@ internal sealed class ScrollCaptureWindow : Window
     private bool _finishRequested;
     private bool _escapeDown;
     private bool _waitingForOverlap;
+    private const int MaxPendingFrames = 4;
+    private readonly Queue<BitmapSource> _pendingFrames = new();
     private readonly List<ScrollCaptureOverlay> _overlays = new();
 
     private ScrollCaptureWindow(Int32Rect region)
     {
         _region = region;
         Title = "EasyShot 滚动捕捉";
+        WindowStyle = WindowStyle.None;
         Width = 260;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -55,12 +59,14 @@ internal sealed class ScrollCaptureWindow : Window
         previewFrame.Child = _preview;
         panel.Children.Add(previewFrame);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        var finish = new Button { Content = "完成", Style = (Style)FindResource("ShotButton"), Margin = new Thickness(3, 12, 3, 0) };
-        var cancel = new Button { Content = "取消", Style = (Style)FindResource("ShotButton"), Margin = new Thickness(3, 12, 3, 0) };
+        var cancel = new Button { Content = ShotIconExtension.Create("Close"), Style = (Style)FindResource("ShotButton"),
+            MinWidth = 88, ToolTip = "取消并退出", Margin = new Thickness(3, 12, 3, 0) };
+        var finish = new Button { Content = ShotIconExtension.Create("Confirm"), Style = (Style)FindResource("ShotButton"),
+            MinWidth = 88, ToolTip = "复制到剪贴板并退出", Margin = new Thickness(3, 12, 3, 0) };
         finish.Click += (_, _) => RequestFinish();
         cancel.Click += (_, _) => Close();
-        buttons.Children.Add(finish);
         buttons.Children.Add(cancel);
+        buttons.Children.Add(finish);
         panel.Children.Add(buttons);
         Content = panel;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
@@ -70,6 +76,7 @@ internal sealed class ScrollCaptureWindow : Window
             _closed = true;
             _timer.Stop();
             _timer.Tick -= OnTick;
+            _pendingFrames.Clear();
             foreach (var overlay in _overlays) overlay.Close();
             _overlays.Clear();
             if (Current == this) Current = null;
@@ -148,7 +155,7 @@ internal sealed class ScrollCaptureWindow : Window
         var down = NativeMethods.GetAsyncKeyState(0x1B) < 0;
         if (down && !_escapeDown) RequestFinish();
         _escapeDown = down;
-        if (_closed || _busy || _paused) return;
+        if (_closed || _paused) return;
         try
         {
             var frame = ScrollStitcher.ToBgra(ScreenCapture.CaptureRegion(_region));
@@ -172,39 +179,70 @@ internal sealed class ScrollCaptureWindow : Window
             // 采样变化后的新画面，不反复计算同一失败帧，也不要求精确滚回原帧。
             if (_candidatePixels is not null && ScrollStitcher.IsStable(_candidatePixels, pixels))
             {
-                if (_finishRequested) Finish();
+                if (_finishRequested && !_busy && _pendingFrames.Count == 0) Finish();
                 return;
             }
             _candidatePixels = pixels;
+
+            // 匹配较慢时继续缓存滚动过程中的画面，避免只取最后一帧而整段跳过。
+            if (_busy)
+            {
+                if (!_finishRequested)
+                {
+                    if (_pendingFrames.Count >= MaxPendingFrames) _pendingFrames.Dequeue();
+                    _pendingFrames.Enqueue(frame);
+                }
+                return;
+            }
+
+            _pendingFrames.Enqueue(frame);
             _busy = true;
-            var result = await Task.Run(() => _stitcher.Append(frame));
-            _busy = false;
-            if (_closed) return;
-            if (result == StitchResult.Appended || (result == StitchResult.Unchanged && _waitingForOverlap))
+            try
             {
-                _waitingForOverlap = false;
-                RefreshPreview();
+                while (_pendingFrames.Count > 0 && !_closed && !_paused)
+                {
+                    var pending = _pendingFrames.Dequeue();
+                    var result = await Task.Run(() => _stitcher.Append(pending));
+                    if (_closed) return;
+                    ApplyResult(result);
+                }
             }
-            else if (result == StitchResult.Failed)
+            finally
             {
-                _waitingForOverlap = true;
-                _status.Text = $"等待重叠：{_stitcher.FailureReason}。\n已保留 {_stitcher.Width} × {_stitcher.Height}，请回滚一些，找到可匹配范围后自动恢复；也可直接完成。";
+                _busy = false;
             }
-            else if (result == StitchResult.HeightLimit)
-            {
-                _paused = true;
-                RefreshPreview();
-                _status.Text = "已达到 20000 像素高度上限，捕捉停止；点击完成进入编辑。";
-            }
-            if (_finishRequested) Finish();
+
+            if (_finishRequested && !_closed && !_paused && _pendingFrames.Count == 0) Finish();
         }
         catch (Exception ex)
         {
             _busy = false;
+            _pendingFrames.Clear();
             if (_closed) return;
             _paused = true;
-            _status.Text = $"捕捉失败，已保留拼接部分：{ex.Message}。请完成或取消。";
+            _status.Text = $"捕捉失败，已保留拼接部分：{ex.Message}。点击 √ 复制已有部分，或 X 取消。";
             if (_finishRequested) Finish();
+        }
+    }
+
+    private void ApplyResult(StitchResult result)
+    {
+        if (result == StitchResult.Appended || (result == StitchResult.Unchanged && _waitingForOverlap))
+        {
+            _waitingForOverlap = false;
+            RefreshPreview();
+        }
+        else if (result == StitchResult.Failed)
+        {
+            _waitingForOverlap = true;
+            _status.Text = $"等待重叠：{_stitcher!.FailureReason}。\n已保留 {_stitcher.Width} × {_stitcher.Height}，请回滚一些，找到可匹配范围后自动恢复；也可点击 √ 直接复制已有部分。";
+        }
+        else if (result == StitchResult.HeightLimit)
+        {
+            _paused = true;
+            _pendingFrames.Clear();
+            RefreshPreview();
+            _status.Text = "已达到 20000 像素高度上限，捕捉停止；点击 √ 复制已有部分并退出。";
         }
     }
 
@@ -212,7 +250,7 @@ internal sealed class ScrollCaptureWindow : Window
     {
         if (_stitcher is null) return;
         _preview.Source = _stitcher.Compose();
-        _status.Text = $"请在选区中手动向上或向下滚动，Esc 完成。\n累计：{_stitcher.Width} × {_stitcher.Height}";
+        _status.Text = $"请在选区中手动向上或向下滚动。\n点击 √ 复制并退出，X 取消。\n累计：{_stitcher.Width} × {_stitcher.Height}";
     }
 
     private void RequestFinish()
@@ -222,7 +260,7 @@ internal sealed class ScrollCaptureWindow : Window
         if (!_busy && (_paused || _waitingForOverlap)) Finish();
         else if (!_busy)
         {
-            // 完成前再采样一次，把可匹配的最后一段加入；无重叠则保留已确认部分。
+            // 复制前再采样一次，把可匹配的最后一段加入；无重叠则保留已确认部分。
             _candidate = null;
             _candidatePixels = null;
         }
@@ -233,15 +271,20 @@ internal sealed class ScrollCaptureWindow : Window
         if (_closed) return;
         if (_stitcher is null)
         {
+            _finishRequested = false;
             MessageBox.Show(this, "尚未获得稳定的初始画面，请取消后重新选择捕捉范围。", "EasyShot");
             return;
         }
         try
         {
             var image = _stitcher.Compose();
+            ScreenshotOutput.Copy(image);
             Close();
-            OverlaySession.EditLongImage(image);
         }
-        catch (Exception ex) { MessageBox.Show($"打开长图编辑失败：{ex.Message}", "EasyShot"); }
+        catch (Exception ex)
+        {
+            _finishRequested = false;
+            MessageBox.Show(this, $"复制长截图失败：{ex.Message}\n可重试或取消。", "EasyShot");
+        }
     }
 }

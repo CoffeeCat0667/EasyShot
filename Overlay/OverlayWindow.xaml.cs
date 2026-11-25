@@ -30,6 +30,11 @@ public partial class OverlayWindow : Window
     private TextBox? _textEditor;
     private bool _longImage;
     private bool _rightCancelPending;
+    private Int32Rect? _visualSelection;
+    private bool _visualSelectionReady;
+    private bool _visualLocked;
+    private double _visualWidth = -1;
+    private double _visualHeight = -1;
 
     internal OverlayWindow(OverlaySession session, MonitorInfo monitor, BitmapSource screen, Int32Rect virtualScreen)
     {
@@ -140,47 +145,59 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        _image.Source = _slice;
+        if (!ReferenceEquals(_image.Source, _slice)) _image.Source = _slice;
         var width = _longImage ? Root.Width : ActualWidth;
         var height = _longImage ? Root.Height : ActualHeight;
-        _image.Width = width;
-        _image.Height = height;
+        if (_image.Width != width) _image.Width = width;
+        if (_image.Height != height) _image.Height = height;
 
-        var full = new Rect(0, 0, width, height);
-        var group = new GeometryGroup { FillRule = FillRule.EvenOdd };
-        group.Children.Add(new RectangleGeometry(full));
-
-        if (selection is { } sel && sel.Width > 0 && sel.Height > 0)
+        // 标注拖动/绘制时选区不变，无需重建遮罩、边框、抓手和尺寸标签。
+        var locked = _session.Selection is not null;
+        if (!_visualSelectionReady || _visualSelection != selection || _visualLocked != locked ||
+            _visualWidth != width || _visualHeight != height)
         {
-            var origin = ToLocalDip(sel);
-            var rect = new Rect(origin.X, origin.Y, sel.Width / _scale, sel.Height / _scale);
-            group.Children.Add(new RectangleGeometry(rect));
+            var full = new Rect(0, 0, width, height);
+            var group = new GeometryGroup { FillRule = FillRule.EvenOdd };
+            group.Children.Add(new RectangleGeometry(full));
 
-            _border.Visibility = Visibility.Visible;
-            _border.Width = rect.Width;
-            _border.Height = rect.Height;
-            Canvas.SetLeft(_border, rect.X);
-            Canvas.SetTop(_border, rect.Y);
-
-            PlaceHandles(rect);
-            if (_session.Selection is null)
+            if (selection is { } sel && sel.Width > 0 && sel.Height > 0)
             {
-                foreach (var handle in _handles) handle.Visibility = Visibility.Collapsed;
+                var origin = ToLocalDip(sel);
+                var rect = new Rect(origin.X, origin.Y, sel.Width / _scale, sel.Height / _scale);
+                group.Children.Add(new RectangleGeometry(rect));
+
+                _border.Visibility = Visibility.Visible;
+                _border.Width = rect.Width;
+                _border.Height = rect.Height;
+                Canvas.SetLeft(_border, rect.X);
+                Canvas.SetTop(_border, rect.Y);
+
+                PlaceHandles(rect);
+                if (_session.Selection is null)
+                {
+                    foreach (var handle in _handles) handle.Visibility = Visibility.Collapsed;
+                }
+                PlaceLabel(rect, sel);
             }
-            PlaceLabel(rect, sel);
-        }
-        else
-        {
-            _border.Visibility = Visibility.Collapsed;
-            foreach (var handle in _handles)
+            else
             {
-                handle.Visibility = Visibility.Collapsed;
+                _border.Visibility = Visibility.Collapsed;
+                foreach (var handle in _handles)
+                {
+                    handle.Visibility = Visibility.Collapsed;
+                }
+
+                _label.Visibility = Visibility.Collapsed;
             }
 
-            _label.Visibility = Visibility.Collapsed;
+            _dim.Data = group;
+            _visualSelection = selection;
+            _visualSelectionReady = true;
+            _visualLocked = locked;
+            _visualWidth = width;
+            _visualHeight = height;
         }
 
-        _dim.Data = group;
         if (_annotationLayer is not null)
         {
             _annotationLayer.Width = width;
@@ -333,7 +350,12 @@ public partial class OverlayWindow : Window
         ReleaseMouseCapture();
         Root.ReleaseMouseCapture();
         var position = annotation?.Points[0] ?? physical;
-        _textEditor = new TextBox { Text = annotation?.Text ?? "", Tag = annotation, MinWidth = 120, FontSize = _session.TextSize / _scale, FontFamily = new FontFamily("Microsoft YaHei") };
+        var color = annotation?.Color ?? _session.Color;
+        var textBrush = new SolidColorBrush(color);
+        _textEditor = new TextBox { Text = annotation?.Text ?? "", Tag = annotation, MinWidth = 120,
+            FontSize = _session.TextSize / _scale, FontFamily = new FontFamily("Microsoft YaHei"),
+            Background = Brushes.Transparent, BorderThickness = new Thickness(0), Foreground = textBrush,
+            CaretBrush = textBrush, FocusVisualStyle = null, Padding = new Thickness(2, 0, 2, 0) };
         Canvas.SetLeft(_textEditor, (position.X - _monitor.Bounds.X) / _scale);
         Canvas.SetTop(_textEditor, (position.Y - _monitor.Bounds.Y) / _scale);
         Root.Children.Add(_textEditor);

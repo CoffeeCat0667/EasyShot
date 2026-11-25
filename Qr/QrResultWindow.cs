@@ -18,7 +18,7 @@ internal sealed class QrResultWindow : Window
         Title = "EasyShot 二维码 / 条形码识别";
         Width = 620;
         Height = 450;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = (Brush)FindResource("ShotBackground");
         Foreground = (Brush)FindResource("ShotText");
         FontFamily = new FontFamily("Segoe UI");
@@ -34,11 +34,6 @@ internal sealed class QrResultWindow : Window
         top.Children.Add(_status);
         DockPanel.SetDock(top, Dock.Top);
         panel.Children.Add(top);
-        var close = new Button { Content = "关闭", HorizontalAlignment = HorizontalAlignment.Right,
-            Style = (Style)FindResource("ShotButton") };
-        close.Click += (_, _) => Close();
-        DockPanel.SetDock(close, Dock.Bottom);
-        panel.Children.Add(close);
         panel.Children.Add(new ScrollViewer { Content = _results, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         Content = panel;
         Loaded += async (_, _) =>

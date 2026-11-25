@@ -17,6 +17,11 @@ public partial class ToolbarWindow : Window
     private Point _dragWindow;
     private Int32Rect _lastSelection;
     private MonitorInfo? _lastMonitor;
+    private bool _stateReady;
+    private AnnotationTool _stateTool;
+    private bool _stateCanUndo;
+    private bool _stateCanRedo;
+    private bool _stateCanScroll;
 
     internal ToolbarWindow(OverlaySession session)
     {
@@ -108,7 +113,20 @@ public partial class ToolbarWindow : Window
 
     internal void UpdateState()
     {
-        StartScrollButton.Visibility = _session.CanStartScrollCapture ? Visibility.Visible : Visibility.Collapsed;
+        var canScroll = _session.CanStartScrollCapture;
+        if (_stateReady && _stateTool == _session.Tool && _stateCanUndo == _session.CanUndo &&
+            _stateCanRedo == _session.CanRedo && _stateCanScroll == canScroll)
+        {
+            return;
+        }
+
+        _stateReady = true;
+        _stateTool = _session.Tool;
+        _stateCanUndo = _session.CanUndo;
+        _stateCanRedo = _session.CanRedo;
+        _stateCanScroll = canScroll;
+
+        StartScrollButton.Visibility = canScroll ? Visibility.Visible : Visibility.Collapsed;
         UndoButton.IsEnabled = _session.CanUndo;
         RedoButton.IsEnabled = _session.CanRedo;
         foreach (var button in new[] { SelectButton, RectangleButton, ArrowButton, PenButton, TextButton, NumberButton, MosaicButton })

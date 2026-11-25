@@ -84,7 +84,7 @@ internal sealed class ScrollStitcher
         var left = (int)content.Left;
         var right = (int)content.Right;
         var contentHeight = bottom - top;
-        var minOverlap = Math.Min(contentHeight - 1, Math.Max(12, contentHeight / 10));
+        var minOverlap = Math.Min(contentHeight - 1, Math.Max(16, contentHeight / 25));
         const int samples = 48;
         var candidates = new List<(int Shift, double Score)>();
         var previousRows = RowSamples(_lastPixels, Width, frameHeight, left, right);
@@ -139,7 +139,25 @@ internal sealed class ScrollStitcher
             }
         }
         if (bestShift == 0)
-            return Fail("未找到可校验的滚动内容重叠；请避开动画，上下滚动时保留至少约 10% 的上一屏内容");
+        {
+            // 平滑滚动会产生亚像素位移，边缘不再逐像素相同；仅此时改用相邻行平滑后的校验。
+            foreach (var candidate in shortlist
+                         .Select(c => (c.Shift, Score: OverlapDifferenceSmoothed(pixels, content, c.Shift, true)))
+                         .GroupBy(c => Math.Sign(c.Shift))
+                         .SelectMany(group => group.OrderBy(c => c.Score).Take(2)))
+            {
+                if (candidate.Score >= 8) continue;
+                var score = OverlapDifferenceSmoothed(pixels, content, candidate.Shift, false);
+                if (score < 8) verified.Add((candidate.Shift, score));
+                if (score < 8 && score < verifiedScore)
+                {
+                    verifiedScore = score;
+                    bestShift = candidate.Shift;
+                }
+            }
+        }
+        if (bestShift == 0)
+            return Fail("未找到可校验的滚动内容重叠；请避开动画，上下滚动时保留至少约 4% 的上一屏内容");
         if (verified.Any(c => Math.Abs(c.Shift - bestShift) > 2 && Math.Abs(c.Score - verifiedScore) < 0.05))
             return Fail("画面存在重复纹理，多个滚动距离同样匹配，无法确定真实位移");
 
@@ -276,6 +294,70 @@ internal sealed class ScrollStitcher
         var textureError = texturedDifference / (texturedCount * 3.0);
         if (matchedTextureCount / (double)texturedCount < 0.8 || textureError >= 16) return double.MaxValue;
         return Math.Max(difference / (count * 3.0), textureError / 2);
+    }
+
+    private double OverlapDifferenceSmoothed(byte[] pixels, Rect content, int shift, bool sampled)
+    {
+        long difference = 0;
+        long texturedDifference = 0;
+        long texturedCount = 0;
+        long matchedTextureCount = 0;
+        long count = 0;
+        var stride = Width * 4;
+        var startY = (int)content.Top + Math.Max(0, -shift);
+        var endY = (int)content.Bottom - Math.Max(0, shift);
+        var top = (int)content.Top;
+        var bottom = (int)content.Bottom;
+        for (var y = startY; y < endY; y += sampled ? Math.Max(1, (endY - startY) / 160) : 1)
+            for (var x = (int)content.Left; x < content.Right; x += sampled ? Math.Max(1, (int)content.Width / 160) : 1)
+            {
+                var oldY = y + shift;
+                var oldIndex = oldY * stride + x * 4;
+                var newIndex = y * stride + x * 4;
+                var oldRed = 0; var oldGreen = 0; var oldBlue = 0;
+                var newRed = 0; var newGreen = 0; var newBlue = 0;
+                var oldCount = 0; var newCount = 0;
+                var from = Math.Max(top, oldY - 1);
+                var to = Math.Min(bottom - 1, oldY + 1);
+                for (var row = from; row <= to; row++)
+                {
+                    var index = row * stride + x * 4;
+                    oldBlue += _lastPixels[index];
+                    oldGreen += _lastPixels[index + 1];
+                    oldRed += _lastPixels[index + 2];
+                    oldCount++;
+                }
+                from = Math.Max(top, y - 1);
+                to = Math.Min(bottom - 1, y + 1);
+                for (var row = from; row <= to; row++)
+                {
+                    var index = row * stride + x * 4;
+                    newBlue += pixels[index];
+                    newGreen += pixels[index + 1];
+                    newRed += pixels[index + 2];
+                    newCount++;
+                }
+                var error = Math.Abs(oldBlue / oldCount - newBlue / newCount) +
+                    Math.Abs(oldGreen / oldCount - newGreen / newCount) +
+                    Math.Abs(oldRed / oldCount - newRed / newCount);
+                difference += error;
+                var edge = y > startY &&
+                    (PixelError(pixels, newIndex, pixels, newIndex - stride) > 24 ||
+                     PixelError(_lastPixels, oldIndex, _lastPixels, oldIndex - stride) > 24);
+                if (edge)
+                {
+                    texturedDifference += Math.Min(error, 90);
+                    if (error <= 45) matchedTextureCount++;
+                    texturedCount++;
+                }
+                count++;
+            }
+        if (count == 0 || texturedCount < Math.Max(4, count / 1000)) return double.MaxValue;
+        var meanDifference = difference / (count * 3.0);
+        var textureError = texturedDifference / (texturedCount * 3.0);
+        var textureRatio = matchedTextureCount / (double)texturedCount;
+        if (meanDifference >= 6 || textureRatio < 0.35 || textureError >= 20) return double.MaxValue;
+        return meanDifference;
     }
 
     private void RemoveTail(int height)
